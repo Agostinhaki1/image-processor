@@ -8,17 +8,14 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Configurações
 FONTS_DIR = './fonts'
 ASSETS_DIR = './assets'
 OUTPUT_DIR = './output'
 TEMP_DIR = './temp'
 
-# Criar diretórios se não existirem
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# Fontes
 FONTS = {
     'montserrat_bold': os.path.join(FONTS_DIR, 'Montserrat-Bold.ttf'),
     'montserrat_black': os.path.join(FONTS_DIR, 'Montserrat-Black.ttf'),
@@ -27,7 +24,6 @@ FONTS = {
 }
 
 def get_font(nome, tamanho):
-    """Carrega fonte ou usa padrão"""
     try:
         fonte_map = {
             'Montserrat': FONTS['montserrat_bold'],
@@ -41,12 +37,10 @@ def get_font(nome, tamanho):
         return ImageFont.load_default()
 
 def hex_to_rgb(hex_color):
-    """Converte hex para RGB"""
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 def draw_text_with_wrap(draw, text, font, max_width, x, y, fill, line_height=1.4):
-    """Desenha texto com quebra automática"""
     words = text.split(' ')
     lines = []
     current_line = ''
@@ -77,7 +71,6 @@ def draw_text_with_wrap(draw, text, font, max_width, x, y, fill, line_height=1.4
 
 @app.route('/', methods=['GET'])
 def home():
-    """Página inicial"""
     return jsonify({
         'service': 'Image Processor API',
         'version': '1.0',
@@ -91,7 +84,6 @@ def home():
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check"""
     return jsonify({
         'status': 'ok',
         'service': 'image-processor',
@@ -101,14 +93,12 @@ def health():
 
 @app.route('/process-slide', methods=['POST'])
 def process_slide():
-    """Processa um slide"""
     try:
         data = request.json
-        print(f"📥 Recebendo requisição: {data.get('id', 'sem-id')}")
+        print(f"Recebendo requisicao: {data.get('id', 'sem-id')}")
         
-        # 1. BAIXAR IMAGEM DALL-E
         dalle_url = data.get('imagem_dalle_path') or data.get('dalle_image_url')
-        print(f"🖼️  Baixando imagem: {dalle_url}")
+        print(f"Baixando imagem: {dalle_url}")
         
         if dalle_url.startswith('http'):
             response = requests.get(dalle_url, timeout=30)
@@ -120,13 +110,10 @@ def process_slide():
             img = img.convert('RGB')
         
         draw = ImageDraw.Draw(img)
-        
-        # 2. PROCESSAR CAMADA DE TEXTO
         camada_texto = data.get('camada_texto', {})
         
-        # TÍTULO
         if 'titulo' in camada_texto:
-            print("✍️  Renderizando título...")
+            print("Renderizando titulo...")
             titulo = camada_texto['titulo']
             font = get_font(titulo['fonte'], titulo['tamanho'])
             color = hex_to_rgb(titulo['cor'])
@@ -141,9 +128,8 @@ def process_slide():
                 draw.text((titulo['posicao']['x'], y_pos), linha, font=font, fill=color)
                 y_pos += line_height
         
-        # LINHA DECORATIVA
         if 'elementos_graficos' in camada_texto:
-            print("🎨 Adicionando elementos gráficos...")
+            print("Adicionando elementos graficos...")
             for elemento in camada_texto['elementos_graficos']:
                 if elemento['tipo'] == 'linha_decorativa':
                     pos = elemento['posicao'].replace('px', '').split(', ')
@@ -160,18 +146,16 @@ def process_slide():
                     badge_font = get_font('Inter', '18px')
                     draw.text((width-100, 55), elemento['texto'], font=badge_font, fill=(255, 255, 255))
         
-        # SUBTÍTULO
         if 'subtitulo' in camada_texto:
-            print("✍️  Renderizando subtítulo...")
+            print("Renderizando subtitulo...")
             sub = camada_texto['subtitulo']
             font = get_font(sub['fonte'], sub['tamanho'])
             color = hex_to_rgb(sub['cor'])
             max_width = sub.get('largura_maxima', img.size[0] - 160)
             draw_text_with_wrap(draw, sub['texto'], font, max_width, sub['posicao']['x'], sub['posicao']['y'], color)
         
-        # DESCRIÇÃO
         if 'descricao' in camada_texto:
-            print("📝 Renderizando descrição...")
+            print("Renderizando descricao...")
             desc = camada_texto['descricao']
             font = get_font(desc['fonte'], desc['tamanho'])
             color = hex_to_rgb(desc['cor'])
@@ -179,9 +163,8 @@ def process_slide():
             line_height = desc.get('linha_altura', 1.6)
             draw_text_with_wrap(draw, desc['texto'], font, max_width, desc['posicao']['x'], desc['posicao']['y'], color, line_height)
         
-        # BULLET POINTS
         if 'bullet_points' in camada_texto:
-            print("🔵 Renderizando bullet points...")
+            print("Renderizando bullet points...")
             y_offset = camada_texto.get('descricao', {}).get('posicao', {}).get('y', 500) + 120
             x_start = camada_texto.get('subtitulo', {}).get('posicao', {}).get('x', 80)
             
@@ -192,10 +175,9 @@ def process_slide():
                 draw.text((x_start + 30, y_offset), bullet['texto'], font=font, fill=color)
                 y_offset += 40
         
-        # LOGO
         camada_marca = data.get('camada_marca', {})
         if 'logo' in camada_marca:
-            print("🎯 Adicionando logo...")
+            print("Adicionando logo...")
             try:
                 logo_path = os.path.join(ASSETS_DIR, 'logo.png')
                 if os.path.exists(logo_path):
@@ -214,11 +196,10 @@ def process_slide():
                     
                     img.paste(logo, (logo_x, logo_y), logo)
             except Exception as e:
-                print(f"⚠️  Erro ao carregar logo: {e}")
+                print(f"Erro ao carregar logo: {e}")
         
-        # HANDLE
         if 'handle' in camada_marca:
-            print("📱 Adicionando handle...")
+            print("Adicionando handle...")
             handle = camada_marca['handle']
             font = get_font('Inter', handle['tamanho'])
             color = hex_to_rgb(handle['cor'])
@@ -234,18 +215,17 @@ def process_slide():
             
             draw.text((handle_x, handle_y), handle['texto'], font=font, fill=color)
         
-        # 3. SALVAR
         slide_id = data.get('id', f"slide_{datetime.now().strftime('%Y%m%d%H%M%S')}")
         output_filename = f"{slide_id}_final.png"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
-        print(f"💾 Salvando: {output_path}")
+        print(f"Salvando: {output_path}")
         img.save(output_path, 'PNG', quality=90, optimize=True)
         
         file_size = os.path.getsize(output_path)
         file_size_kb = file_size / 1024
         
-        print(f"✅ Processamento concluído! {file_size_kb:.2f}KB")
+        print(f"Processamento concluido! {file_size_kb:.2f}KB")
         
         return jsonify({
             'status': 'sucesso',
@@ -262,7 +242,7 @@ def process_slide():
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"❌ ERRO: {error_trace}")
+        print(f"ERRO: {error_trace}")
         return jsonify({
             'status': 'erro',
             'erro': str(e),
@@ -272,28 +252,12 @@ def process_slide():
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
-    """Baixar arquivo"""
     file_path = os.path.join(OUTPUT_DIR, filename)
     if os.path.exists(file_path):
         return send_file(file_path, mimetype='image/png')
-    return jsonify({'erro': 'Arquivo não encontrado'}), 404
+    return jsonify({'erro': 'Arquivo nao encontrado'}), 404
 
 if __name__ == '__main__':
-    print("🚀 Image Processor Service INICIADO!")
-    print("📍 Porta: 5000")
+    print("Image Processor Service INICIADO!")
+    print("Porta: 5000")
     app.run(host='0.0.0.0', port=5000, debug=False)
-```
-
-#### **4. `.dockerignore`**
-```
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.git/
-.gitignore
-README.md
-.DS_Store
