@@ -1,0 +1,10 @@
+image-processor/
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── image_processor.py
+├── fonts/
+│   └── (fontes serão baixadas depois)
+├── assets/
+│   └── logo.png
+└── README.md
