@@ -110,25 +110,25 @@ def process_slide():
             img = img.convert('RGB')
         
         draw = ImageDraw.Draw(img)
+        
         # APLICAR OVERLAY ESCURO para legibilidade do texto
-camada_texto = data.get('camada_texto', {})
-if 'overlay' in camada_texto:
-    overlay_config = camada_texto['overlay']
-    
-    # Criar camada semi-transparente
-    overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    
-    # Desenhar retângulo semi-transparente
-    overlay_draw.rectangle(
-        [(0, 0), img.size],
-        fill=(0, 0, 0, 128)  # Preto 50% transparente
-    )
-    
-    # Aplicar overlay na imagem
-    img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
-    draw = ImageDraw.Draw(img)
         camada_texto = data.get('camada_texto', {})
+        if 'overlay' in camada_texto:
+            overlay_config = camada_texto['overlay']
+            
+            # Criar camada semi-transparente
+            overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+            overlay_draw = ImageDraw.Draw(overlay)
+            
+            # Desenhar retângulo semi-transparente
+            overlay_draw.rectangle(
+                [(0, 0), img.size],
+                fill=(0, 0, 0, 128)  # Preto 50% transparente
+            )
+            
+            # Aplicar overlay na imagem
+            img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+            draw = ImageDraw.Draw(img)
         
         if 'titulo' in camada_texto:
             print("Renderizando titulo...")
