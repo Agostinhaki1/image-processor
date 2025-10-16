@@ -4,6 +4,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     wget \
+    curl \
     libjpeg-dev \
     zlib1g-dev \
     libfreetype6-dev \
@@ -21,10 +22,11 @@ COPY image_processor.py .
 RUN mkdir -p /app/fonts /app/assets /app/output /app/temp
 
 RUN cd /app/fonts && \
-    wget -q https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf && \
-    wget -q https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Black.ttf && \
-    wget -q https://github.com/rsms/inter/raw/master/docs/font-files/Inter-Regular.ttf && \
-    wget -q https://github.com/rsms/inter/raw/master/docs/font-files/Inter-Medium.ttf
+    wget -O Montserrat-Bold.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Bold.ttf" && \
+    wget -O Montserrat-Black.ttf "https://github.com/google/fonts/raw/main/ofl/montserrat/Montserrat-Black.ttf" && \
+    wget -O Inter-Regular.ttf "https://github.com/rsms/inter/raw/v4.1/docs/font-files/Inter-Regular.ttf" && \
+    wget -O Inter-Medium.ttf "https://github.com/rsms/inter/raw/v4.1/docs/font-files/Inter-Medium.ttf" || \
+    (echo "Fontes não baixadas, usando fallback" && touch fallback.txt)
 
 EXPOSE 5000
 
