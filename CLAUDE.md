@@ -1,21 +1,21 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este arquivo fornece orientações para o Claude Code (claude.ai/code) ao trabalhar com o código deste repositório.
 
-## Overview
+## Visão geral
 
-This is a single-file Flask microservice that takes a base image (typically an AI-generated image, e.g. from DALL-E) and overlays text/graphics on it to produce Instagram carousel slides. It's designed to be called by an external automation (e.g. an n8n/Make workflow) that supplies image URLs and a JSON layout spec, and returns a rendered PNG.
+Este é um microserviço Flask em um único arquivo que recebe uma imagem base (normalmente uma imagem gerada por IA, ex.: DALL-E) e sobrepõe texto/elementos gráficos para produzir slides de carrossel do Instagram. Foi projetado para ser chamado por uma automação externa (ex.: um fluxo n8n/Make) que fornece URLs de imagem e uma especificação de layout em JSON, retornando um PNG renderizado.
 
-All application logic lives in `image_processor.py` — there is no package structure, framework scaffolding, or test suite.
+Toda a lógica da aplicação está em `image_processor.py` — não há estrutura de pacotes, scaffolding de framework nem suíte de testes.
 
-## Running locally
+## Rodando localmente
 
 ```bash
 pip install -r requirements.txt
-python image_processor.py        # runs Flask dev server on 0.0.0.0:5000
+python image_processor.py        # roda o servidor de dev do Flask em 0.0.0.0:5000
 ```
 
-Production runs via gunicorn (as used in the Dockerfile):
+Em produção roda via gunicorn (como usado no Dockerfile):
 
 ```bash
 gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 120 image_processor:app
@@ -28,34 +28,34 @@ docker build -t image-processor .
 docker run -p 5000:5000 image-processor
 ```
 
-The Dockerfile downloads font files (Montserrat, Inter) from GitHub at build time into `/app/fonts`. If those downloads fail, the build falls back silently (`fallback.txt`) and `get_font()` at runtime falls back to `ImageFont.load_default()` — keep this in mind when debugging text rendering that looks wrong (wrong font ≠ crash).
+O Dockerfile baixa os arquivos de fonte (Montserrat, Inter) do GitHub durante o build, em `/app/fonts`. Se os downloads falharem, o build cai num fallback silencioso (`fallback.txt`) e o `get_font()` em runtime recorre a `ImageFont.load_default()` — vale lembrar disso ao depurar renderização de texto que parece errada (fonte errada ≠ erro/crash).
 
-There is no test suite, linter, or CI config in this repo. There is no `docker-compose.yml` despite the README referencing one.
+Não há suíte de testes, linter ou configuração de CI neste repositório. Também não existe `docker-compose.yml`, apesar do README fazer referência a um.
 
-## Architecture
+## Arquitetura
 
-Everything is in `image_processor.py`. The important structure:
+Tudo está em `image_processor.py`. Estrutura importante:
 
-- **Directories** (created at import time): `./fonts`, `./assets`, `./output`, `./temp`. `./assets/logo.png` is the expected brand logo used for watermarking; `./output` is where generated slides are written and served from.
-- **Font resolution** (`get_font`): a small hardcoded map (`Montserrat` → Montserrat-Bold, everything else → Inter-Regular) — adding a font means editing the `FONTS` dict and `fonte_map` together.
-- **Text wrapping** (`draw_text_with_wrap`): manual word-wrap using `draw.textbbox` to measure width; used for subtitle/description blocks.
+- **Diretórios** (criados no momento do import): `./fonts`, `./assets`, `./output`, `./temp`. `./assets/logo.png` é o logo da marca esperado para a marca d'água; `./output` é onde os slides gerados são salvos e servidos.
+- **Resolução de fontes** (`get_font`): um mapa pequeno e fixo (`Montserrat` → Montserrat-Bold, qualquer outra coisa → Inter-Regular) — adicionar uma fonte nova exige editar o dict `FONTS` e o `fonte_map` juntos.
+- **Quebra de texto** (`draw_text_with_wrap`): quebra de linha manual usando `draw.textbbox` para medir largura; usada nos blocos de subtítulo/descrição.
 
-### Request/response contract
+### Contrato de request/response
 
-- `POST /process-slide` is the core endpoint. It expects a JSON body shaped roughly like:
-  - `id` — used to name the output file (`{id}_final.png`)
-  - `imagem_dalle_path` or `dalle_image_url` — the source image, either an HTTP(S) URL (downloaded via `requests`) or a local path
-  - `camada_texto` — the text/overlay layer, optionally containing (in draw order): `overlay` (semi-transparent black rectangle for legibility), `titulo` (title, supports `\n` or `quebra_linha` for manual line breaks), `elementos_graficos` (list of `linha_decorativa` or `badge` shapes), `subtitulo`, `descricao` (both word-wrapped), `bullet_points` (list of icon+text rows, colored `#0066FF` if `destaque` else `#666666`)
-  - `camada_marca` — the branding layer: `logo` (resized/pasted from `assets/logo.png`, positioned bottom-left unless `posicao` contains `"right"`) and `handle` (@handle text, right-aligned if `posicao` contains `"right"`)
-  - Field/value strings mix Portuguese keys (`titulo`, `cor`, `tamanho`, `posicao`) with pixel-suffixed values (e.g. `"32px"`, `"#0066FF"`) that get parsed with `.replace('px', '')` / `hex_to_rgb`. Keep this parsing convention if extending the schema — it is not JSON schema-validated, so malformed input mostly surfaces as a 500 with a full traceback in the JSON response.
-- Processing order matters: overlay → titulo → elementos_graficos → subtitulo → descricao → bullet_points → logo → handle. Later draws paint over earlier ones.
-- Response includes `download_url: /download/<filename>`; `GET /download/<filename>` serves the file straight from `OUTPUT_DIR` with no filename sanitization beyond `os.path.exists` — be careful about path traversal if touching this endpoint.
-- `GET /` and `GET /health` are simple status/info endpoints.
+- `POST /process-slide` é o endpoint principal. Espera um corpo JSON aproximadamente assim:
+  - `id` — usado para nomear o arquivo de saída (`{id}_final.png`)
+  - `imagem_dalle_path` ou `dalle_image_url` — a imagem de origem, podendo ser uma URL HTTP(S) (baixada via `requests`) ou um caminho local
+  - `camada_texto` — a camada de texto/overlay, podendo conter (na ordem de desenho): `overlay` (retângulo preto semi-transparente para legibilidade), `titulo` (suporta `\n` ou `quebra_linha` para quebras manuais), `elementos_graficos` (lista de `linha_decorativa` ou `badge`), `subtitulo`, `descricao` (ambos com quebra automática), `bullet_points` (lista de linhas ícone+texto, coloridas em `#0066FF` se `destaque` for true, senão `#666666`)
+  - `camada_marca` — a camada de marca: `logo` (redimensionado/colado a partir de `assets/logo.png`, posicionado no canto inferior esquerdo a menos que `posicao` contenha `"right"`) e `handle` (texto @handle, alinhado à direita se `posicao` contiver `"right"`)
+  - Os campos/valores misturam chaves em português (`titulo`, `cor`, `tamanho`, `posicao`) com valores em string com sufixo de pixel (ex.: `"32px"`, `"#0066FF"`), tratados via `.replace('px', '')` / `hex_to_rgb`. Mantenha essa convenção de parsing ao estender o schema — não há validação de schema JSON, então entradas malformadas geralmente resultam em um 500 com traceback completo na resposta.
+- A ordem de processamento importa: overlay → titulo → elementos_graficos → subtitulo → descricao → bullet_points → logo → handle. Desenhos posteriores sobrepõem os anteriores.
+- A resposta inclui `download_url: /download/<filename>`; `GET /download/<filename>` serve o arquivo diretamente de `OUTPUT_DIR` sem sanitização do nome além de `os.path.exists` — cuidado com path traversal se mexer nesse endpoint.
+- `GET /` e `GET /health` são endpoints simples de status/informação.
 
-### Error handling pattern
+### Padrão de tratamento de erros
 
-`process_slide` wraps the whole pipeline in one try/except and returns `{status: 'erro', erro, stack, timestamp}` with HTTP 500 on any failure, including the full Python traceback. This is intentional for debugging the external caller but means errors are not distinguished by type (e.g. bad input vs. download failure vs. render failure) — if you need finer-grained error responses, add explicit checks (e.g. for missing `dalle_url`) before the broad except.
+`process_slide` envolve todo o pipeline em um único try/except e retorna `{status: 'erro', erro, stack, timestamp}` com HTTP 500 em qualquer falha, incluindo o traceback completo do Python. Isso é intencional para facilitar a depuração pelo chamador externo, mas significa que os erros não são diferenciados por tipo (ex.: entrada inválida vs. falha de download vs. falha de renderização) — se precisar de respostas de erro mais granulares, adicione checagens explícitas (ex.: `dalle_url` ausente) antes do except genérico.
 
-### Language convention
+### Convenção de idioma
 
-Code identifiers, log messages, and the JSON payload schema (`camada_texto`, `titulo`, `cor`, etc.) are in Portuguese; keep new fields/log messages consistent with this rather than mixing in English.
+Identificadores de código, mensagens de log e o schema do payload JSON (`camada_texto`, `titulo`, `cor`, etc.) estão em português; mantenha novos campos/mensagens de log consistentes com isso em vez de misturar inglês.
